@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-const API_URL = 'https://du-mock-checkout-7d42d0a76fbf.herokuapp.com/';
+const API_URL = process.env.VUE_APP_API_URL;
 const AUTH_HEADER = {
-  Authorization: 'Bearer C4D5C577E9914C4B9C9BF46DF9914A28'
+  Authorization: `Bearer ${process.env.VUE_APP_AUTH_TOKEN}`
 };
 
 export const apiRequest = async (method, url, data = null, params = null) => {
