@@ -9,7 +9,7 @@
 </template>
 
 <script>
-import Checkout from "./components/Checkout.vue";
+import Checkout from "./pages/Checkout.vue";
 
 export default {
   name: "App",
@@ -27,7 +27,7 @@ body {
   padding: 0;
 }
 .page-container {
-  background-image: url("@/assets/abstract-plastic-bag-concept-with-copy-space.jpg"); /* Correct path */
+  background-image: url("@/assets/abstract-plastic-bag-concept-with-copy-space.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

@@ -129,9 +129,9 @@
 </template>
   
   <script>
-import AddressForm from "./AddressForm.vue";
-import PaymentForm from "./PaymentForm.vue";
-import Cart from "./Cart.vue";
+import AddressForm from "../components/AddressForm.vue";
+import PaymentForm from "../components/PaymentForm.vue";
+import Cart from "../components/Cart.vue";
 import { getCart, applyCoupon } from "../api/cart";
 import { getAddresses, getCountries } from "../api/address";
 import { getPaymentOptions, getCreditCards } from "../api/payment";
@@ -265,6 +265,7 @@ export default {
             this.dialogMessage =
               "Your order has been placed. Here are the details:";
             this.dialogSuccess = true;
+            this.fetchPageData();
           })
           .catch((error) => {
             this.dialogTitle = "Order Failed";
@@ -279,13 +280,16 @@ export default {
 
       this.dialog = true;
     },
+    async fetchPageData() {
+      await this.fetchPaymentOptions();
+      await this.fetchAddresses();
+      await this.fetchCart();
+      await this.fetchCreditCards();
+      await this.fetchCountries();
+    },
   },
-  async mounted() {
-    await this.fetchPaymentOptions();
-    await this.fetchAddresses();
-    await this.fetchCart();
-    await this.fetchCreditCards();
-    await this.fetchCountries();
+  mounted() {
+    this.fetchPageData();
   },
 };
 </script>
@@ -340,7 +344,7 @@ export default {
 }
 
 .cart-content {
-  max-height: calc(100vh - 250px); /* Ensures it fits within the viewport */
+  max-height: calc(100vh - 250px);
   overflow-y: auto;
   padding: 6px 0 6px 6px;
   display: flex;

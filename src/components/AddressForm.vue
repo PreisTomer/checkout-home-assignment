@@ -106,7 +106,7 @@ export default {
 
   computed: {
     formattedAddresses() {
-      return this.addresses.map((addr) => ({
+      return this.mockAddresses.map((addr) => ({
         id: addr.id,
         display: `${addr.addressLine1}, ${addr.city}, ${addr.state} ${addr.zipCode}, ${addr.country}`,
       }));
@@ -123,7 +123,6 @@ export default {
 
   methods: {
     fillAddress() {
-      this.mockAddresses = [...this.addresses];
       const selectedAddress = this.mockAddresses.find(
         (addr) => addr.id === this.selectedAddressId
       );
@@ -131,14 +130,7 @@ export default {
         this.selectedAddressId = selectedAddress.id;
         this.address = selectedAddress;
       } else {
-        this.address = {
-          country: "",
-          state: "",
-          city: "",
-          zipCode: "",
-          addressLine1: "",
-          addressLine2: "",
-        };
+        this.resetForm();
       }
       this.emitAddress();
     },
@@ -157,6 +149,7 @@ export default {
     },
 
     async deleteSelectedAddress() {
+      this.mockAddresses = [...this.addresses];
       try {
         await deleteAddress(this.addressIdToDelete);
         this.mockAddresses = this.formattedAddresses.filter(
@@ -164,6 +157,7 @@ export default {
         );
         this.deleteDialog = false;
         this.addressIdToDelete = null;
+        this.resetForm();
         if (this.selectedAddressId === this.addressIdToDelete) {
           this.selectedAddressId = null;
           this.fillAddress();
@@ -173,6 +167,20 @@ export default {
         this.deleteDialog = false;
       }
     },
+    resetForm() {
+      this.address = {
+        country: "",
+        state: "",
+        city: "",
+        zipCode: "",
+        addressLine1: "",
+        addressLine2: "",
+      };
+    },
+  },
+
+  mounted() {
+    this.mockAddresses = [...this.addresses];
   },
 };
 </script>

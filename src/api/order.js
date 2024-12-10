@@ -19,6 +19,7 @@ export const handleCheckout = async ({
     // handle address
     if (!selectedAddress?.id) {
       // if no id, add the new address to get id from server
+      selectedAddress.saved = true;
       const addressResponse = await addAddress(selectedAddress);
       selectedAddress.id = addressResponse.id;
     }
