@@ -1,8 +1,21 @@
 <template>
   <v-app>
     <div class="page-container">
+      <v-snackbar
+        :value="showMessage"
+        timeout="5000"
+        :color="snackbarMessageColor"
+        top
+        >{{ snackBarText }}
+
+        <template v-slot:action="{ attrs }">
+          <v-btn color="white" text v-bind="attrs" @click="showMessage = false">
+            Close
+          </v-btn>
+        </template>
+      </v-snackbar>
       <v-container>
-        <Checkout />
+        <Checkout @show-snackbar="showSnackbar" />
       </v-container>
     </div>
   </v-app>
@@ -15,6 +28,20 @@ export default {
   name: "App",
   components: {
     Checkout,
+  },
+  data() {
+    return {
+      showMessage: false,
+      snackBarText: "",
+      snackbarMessageColor: "",
+    };
+  },
+  methods: {
+    showSnackbar(data) {
+      this.snackBarText = data.text;
+      this.snackbarMessageColor = data.success ? "success" : "red";
+      this.showMessage = true;
+    },
   },
 };
 </script>

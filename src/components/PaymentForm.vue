@@ -4,17 +4,103 @@
       v-model="paymentMethod"
       :items="paymentOptions"
       label="Select Payment Method"
-      @change="handlePaymentMethodChange"
     ></v-select>
 
     <div v-if="paymentMethod === 'CreditCard'">
+      <v-text-field
+        v-model="creditCard.cardHolderName"
+        label="Cardholder Name"
+        :readonly="readOnly"
+        outlined
+        dense
+      ></v-text-field>
+
+      <v-text-field
+        v-model="creditCard.cardNumber"
+        :readonly="readOnly"
+        label="Card Number"
+        type="text"
+        outlined
+        dense
+      ></v-text-field>
+
+      <v-layout>
+        <v-flex xs6>
+          <v-text-field
+            v-model="creditCard.expiryMonth"
+            :readonly="readOnly"
+            label="Expiry Month"
+            type="number"
+            min="1"
+            max="12"
+            outlined
+            dense
+          ></v-text-field>
+        </v-flex>
+        <v-flex xs6>
+          <v-text-field
+            v-model="creditCard.expiryYear"
+            label="Expiry Year"
+            type="number"
+            min="24"
+            :readonly="readOnly"
+            outlined
+            dense
+          ></v-text-field>
+        </v-flex>
+      </v-layout>
+
+      <v-text-field
+        v-model="creditCard.cvv"
+        label="CVV"
+        type="text"
+        maxlength="4"
+        :readonly="readOnly"
+        outlined
+        dense
+        hide-details
+      ></v-text-field>
+      <v-btn
+        color="primary"
+        class="mt-4"
+        small
+        :loading="addCardButtonLoader"
+        :disabled="!isValid"
+        @click="emitAddCardEvent"
+        >Add</v-btn
+      >
+    </div>
+
+    <div v-if="paymentMethod === 'PurchaseOrder'">
+      <v-text-field
+        v-model="purchaseOrderNumber"
+        label="Purchase Order Number"
+        maxlength="12"
+        minlength="5"
+        type="text"
+        outlined
+        dense
+      ></v-text-field>
+      <v-btn
+        color="primary"
+        class="mt-2"
+        small
+        :loading="applyOrderNumberLoader"
+        :disabled="!isValid"
+        @click="emitOrderNumber"
+        >Apply Order Number</v-btn
+      >
+    </div>
+    <div class="cc-container">
       <v-select
+        v-if="paymentMethod === 'CreditCard'"
         v-model="selectedCreditCard"
-        :items="creditCards"
+        :items="mockCreditCards"
         label="Select Credit Card"
         item-text="cardNumber"
         item-value="id"
         @change="populateCreditCardDetails"
+        class="cc-select-field"
       >
         <template v-slot:selection="{ item }">
           {{ item.cardNumber }}
@@ -28,69 +114,6 @@
           </v-icon>
         </template>
       </v-select>
-
-      <v-text-field
-        v-model="creditCard.cardHolderName"
-        label="Cardholder Name"
-        @input="emitPaymentDetails"
-        outlined
-        dense
-      ></v-text-field>
-
-      <v-text-field
-        v-model="creditCard.cardNumber"
-        label="Card Number"
-        type="text"
-        @input="emitPaymentDetails"
-        outlined
-        dense
-      ></v-text-field>
-
-      <v-layout>
-        <v-flex xs6>
-          <v-text-field
-            v-model="creditCard.expiryMonth"
-            label="Expiry Month"
-            type="number"
-            @input="emitPaymentDetails"
-            min="1"
-            max="12"
-            outlined
-            dense
-          ></v-text-field>
-        </v-flex>
-        <v-flex xs6>
-          <v-text-field
-            v-model="creditCard.expiryYear"
-            label="Expiry Year"
-            type="number"
-            min="24"
-            @input="emitPaymentDetails"
-            outlined
-            dense
-          ></v-text-field>
-        </v-flex>
-      </v-layout>
-
-      <v-text-field
-        v-model="creditCard.cvv"
-        label="CVV"
-        type="text"
-        maxlength="4"
-        @input="emitPaymentDetails"
-        outlined
-        dense
-      ></v-text-field>
-    </div>
-
-    <div v-if="paymentMethod === 'PurchaseOrder'">
-      <v-text-field
-        v-model="purchaseOrderNumber"
-        label="Purchase Order Number"
-        @input="emitPaymentDetails"
-        outlined
-        dense
-      ></v-text-field>
     </div>
 
     <v-dialog v-model="deleteDialog" persistent max-width="400">
@@ -120,6 +143,7 @@ export default {
   data() {
     return {
       paymentMethod: "",
+      mockCreditCards: [],
       selectedCreditCard: null,
       creditCard: {
         cardNumber: "",
@@ -127,41 +151,45 @@ export default {
         expiryYear: "",
         cvv: "",
         cardHolderName: "",
-        saved: false,
-        id: "",
+        saved: true,
       },
+      readOnly: false,
       purchaseOrderNumber: "",
       minDate: new Date().toISOString().substr(0, 10),
       deleteDialog: false,
       cardToDelete: null,
+      addCardButtonLoader: false,
+      applyOrderNumberLoader: false,
     };
   },
   watch: {
-    isValid(newVal) {
-      this.$emit("validity-change", newVal);
+    creditCards(newVal) {
+      this.mockCreditCards = [...newVal];
+      this.addCardButtonLoader = false;
     },
   },
   computed: {
     isValid() {
-      if (this.paymentMethod.length) {
-        if (this.paymentMethod === "CreditCard") {
-          return !!(
-            this.creditCard.expiryMonth &&
-            this.creditCard.expiryYear &&
-            this.creditCard.cvv &&
-            this.creditCard.cardHolderName
-          );
-        } else {
-          return !!this.purchaseOrderNumber;
-        }
+      if (this.paymentMethod === "CreditCard") {
+        return !!(
+          this.creditCard.expiryMonth &&
+          this.creditCard.expiryYear &&
+          this.creditCard.cvv &&
+          this.creditCard.cardHolderName
+        );
       } else {
-        return false;
+        return !!this.purchaseOrderNumber;
       }
     },
   },
   methods: {
-    handlePaymentMethodChange() {
-      this.emitPaymentDetails();
+    emitAddCardEvent() {
+      this.addCardButtonLoader = true;
+      this.creditCard.saved = true;
+      this.$emit("add-credit-card", this.creditCard);
+    },
+    emitOrderNumber() {
+      this.$emit("apply-order-number", this.purchaseOrderNumber);
     },
     getPaymentData() {
       if (this.paymentMethod === "CreditCard") {
@@ -174,9 +202,10 @@ export default {
       }
     },
     populateCreditCardDetails(cardId) {
-      const card = this.creditCards.find((c) => c.id === cardId);
+      const card = this.mockCreditCards.find((c) => c.id === cardId);
       if (card) {
         this.creditCard = { ...card };
+        this.readOnly = true;
         this.emitPaymentDetails();
       }
     },
@@ -186,22 +215,35 @@ export default {
     },
     async confirmDelete() {
       try {
-        if (this.cardToDelete && this.cardToDelete.id) {
+        if (this.cardToDelete?.id) {
           await deleteCreditCard(this.cardToDelete.id);
           this.deleteDialog = false;
           this.cardToDelete = null;
         }
         this.$emit("card-deleted");
+        this.resetFields();
       } catch (error) {
         console.error("Error deleting credit card:", error);
       }
+    },
+    resetFields() {
+      this.creditCard = {
+        cardNumber: "",
+        expiryMonth: "",
+        expiryYear: "",
+        cvv: "",
+        cardHolderName: "",
+        saved: false,
+        id: "",
+      };
+      this.readOnly = false;
     },
     emitPaymentDetails() {
       const paymentDetails =
         this.paymentMethod === "CreditCard"
           ? {
               method: "CreditCard",
-              ...this.creditCard,
+              cardId: this.selectedCreditCard,
             }
           : {
               method: "PurchaseOrder",
@@ -211,5 +253,14 @@ export default {
       this.$emit("update-payment", paymentDetails);
     },
   },
+  mounted() {
+    this.mockCreditCards = [...this.creditCards];
+  },
 };
 </script>
+
+<style class="scoped">
+.cc-container {
+  margin-top: 89px;
+}
+</style>

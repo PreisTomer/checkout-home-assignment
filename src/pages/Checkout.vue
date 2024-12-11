@@ -19,21 +19,21 @@
                 <v-col cols="12" sm="6" lg="7">
                   <h3 class="section-title">Shipping Address</h3>
                   <AddressForm
-                    ref="addressFormRef"
+                    @add-new-address="addNewAddress"
                     @update-address="updateAddress"
-                    @validity-change="isAddressFormValid = $event"
+                    @address-deleted="addressDeleted"
                     :addresses="mockAddresses"
                     :countries="countries"
                   />
                 </v-col>
 
                 <v-col cols="12" sm="6" lg="5" class="pl-3 pr-5">
-                  <h3 class="section-title">Payment</h3>
+                  <h3 class="section-title mb-4">Payment</h3>
                   <PaymentForm
-                    ref="paymentDetailsRef"
                     @update-payment="updatePayment"
-                    @card-deleted="fetchCreditCards"
-                    @validity-change="isPaymentFormValid = $event"
+                    @apply-order-number="applyOrderNumber"
+                    @card-deleted="cardDeleted"
+                    @add-credit-card="addCard"
                     :paymentOptions="paymentOptions"
                     :creditCards="creditCards"
                   />
@@ -46,7 +46,7 @@
               block
               color="primary"
               min-width="200"
-              :disabled="isSubmitDisabled"
+              :disabled="!isSubmitDisabled"
               @click="submitCheckout"
             >
               Place Order
@@ -133,8 +133,14 @@ import AddressForm from "../components/AddressForm.vue";
 import PaymentForm from "../components/PaymentForm.vue";
 import Cart from "../components/Cart.vue";
 import { getCart, applyCoupon } from "../api/cart";
-import { getAddresses, getCountries } from "../api/address";
-import { getPaymentOptions, getCreditCards } from "../api/payment";
+import { addAddress, getAddresses, getCountries } from "../api/address";
+import {
+  getPaymentOptions,
+  getCreditCards,
+  addCreditCard,
+  applyPurchaseOrderNumber,
+  selectCreditCardMethod,
+} from "../api/payment";
 import { submitOrder, handleCheckout } from "../api/order";
 
 export default {
@@ -146,7 +152,7 @@ export default {
   },
   data() {
     return {
-      selectedAddress: {},
+      selectedAddressId: {},
       paymentDetails: {},
       orderSummary: {},
       couponLoading: false,
@@ -163,19 +169,17 @@ export default {
         cartId: "",
         addressId: "",
         paymentMethod: "",
-        paymentInfoId: "",
-        purchaseOrderNumber: "",
         couponCode: "",
         termsAndConditionsAccepted: true,
       },
-      isAddressFormValid: false,
-      isPaymentFormValid: false,
+      isAddressSelected: false,
+      isPaymentSelected: false,
       couponErrorMessage: "",
     };
   },
   computed: {
     isSubmitDisabled() {
-      return !(this.isAddressFormValid && this.isPaymentFormValid);
+      return this.isAddressSelected && this.isPaymentSelected;
     },
     isLoaded() {
       return this.cartItems.length > 0;
@@ -195,11 +199,88 @@ export default {
           this.couponErrorMessage = "coupon code not found";
         });
     },
-    updateAddress(address) {
-      this.selectedAddress = address;
+    updateAddress(id) {
+      this.selectedAddressId = id;
+      this.isAddressSelected = true;
     },
-    updatePayment(paymentDetails) {
+    addressDeleted() {
+      this.$emit("show-snackbar", {
+        text: "Address Deleted",
+        success: true,
+      });
+      this.fetchAddresses();
+    },
+    cardDeleted() {
+      this.$emit("show-snackbar", {
+        text: "Credit Card Deleted",
+        success: true,
+      });
+      this.fetchCreditCards();
+    },
+    async addNewAddress(addressData) {
+      await addAddress(addressData)
+        .then(() => {
+          this.fetchAddresses();
+          this.$emit("show-snackbar", {
+            text: "New Address Added",
+            success: true,
+          });
+        })
+        .catch((e) => {
+          this.$emit("show-snackbar", {
+            text: e.message,
+            success: false,
+          });
+        });
+    },
+    async updatePayment(paymentDetails) {
       this.paymentDetails = paymentDetails;
+      if (this.paymentDetails.method === "CreditCard") {
+        try {
+          await selectCreditCardMethod(paymentDetails.cardId);
+          this.paymentDetails.paymentInfoId = paymentDetails.cardId;
+          this.isPaymentSelected = true;
+        } catch (error) {
+          this.$emit("show-snackbar", {
+            text: error.message,
+            success: false,
+          });
+        }
+      }
+    },
+    async addCard(cardData) {
+      try {
+        await addCreditCard(cardData).then(() => {
+          this.fetchCreditCards();
+          this.$emit("show-snackbar", {
+            text: "Added New Credit Card",
+            success: true,
+          });
+        });
+        this.fetchCreditCards();
+      } catch (error) {
+        this.$emit("show-snackbar", {
+          text: error.message,
+          success: false,
+        });
+      }
+    },
+    async applyOrderNumber(number) {
+      try {
+        await applyPurchaseOrderNumber(number).then((res) => {
+          this.$emit("show-snackbar", {
+            text: "Purchase Order Number Applied",
+            success: true,
+          });
+          this.paymentDetails.paymentInfoId = res.id;
+          this.isPaymentSelected = true;
+        });
+      } catch (error) {
+        this.$emit("show-snackbar", {
+          text: error.message,
+          success: false,
+        });
+      }
     },
     async fetchAddresses() {
       try {
@@ -230,11 +311,7 @@ export default {
     },
     async fetchCreditCards() {
       try {
-        const cards = await getCreditCards();
-        this.creditCards = cards.map((card) => ({
-          ...card,
-          cardNumber: `${card.cardNumber} (${card.expiryMonth}/${card.expiryYear})`,
-        }));
+        this.creditCards = await getCreditCards();
       } catch (error) {
         console.error("Error fetching credit cards:", error);
       }
@@ -248,24 +325,18 @@ export default {
     },
 
     async submitCheckout() {
-      this.selectedAddress = this.$refs.addressFormRef.getAddressData();
-      this.paymentDetails = this.$refs.paymentDetailsRef.getPaymentData();
-
       try {
-        const finalizedOrderDetails = await handleCheckout({
-          selectedAddress: this.selectedAddress,
+        const finalizedOrderDetails = handleCheckout({
           paymentDetails: this.paymentDetails,
-          mockAddresses: this.mockAddresses,
+          addressId: this.selectedAddressId,
           orderDetails: this.orderDetails,
         });
-
         await submitOrder(finalizedOrderDetails)
           .then(() => {
             this.dialogTitle = "Order Placed Successfully!";
             this.dialogMessage =
               "Your order has been placed. Here are the details:";
             this.dialogSuccess = true;
-            this.fetchPageData();
           })
           .catch((error) => {
             this.dialogTitle = "Order Failed";
@@ -280,16 +351,13 @@ export default {
 
       this.dialog = true;
     },
-    async fetchPageData() {
-      await this.fetchPaymentOptions();
-      await this.fetchAddresses();
-      await this.fetchCart();
-      await this.fetchCreditCards();
-      await this.fetchCountries();
-    },
   },
-  mounted() {
-    this.fetchPageData();
+  async mounted() {
+    await this.fetchPaymentOptions();
+    await this.fetchAddresses();
+    await this.fetchCart();
+    await this.fetchCreditCards();
+    await this.fetchCountries();
   },
 };
 </script>
@@ -344,11 +412,11 @@ export default {
 }
 
 .cart-content {
-  max-height: calc(100vh - 250px);
-  overflow-y: auto;
+  max-height: calc(100vh - 260px);
   padding: 6px 0 6px 6px;
   display: flex;
   align-content: center;
+  overflow-y: auto;
   justify-content: center;
 }
 
@@ -370,7 +438,7 @@ export default {
 }
 
 .submit-button-container {
-  margin-top: 60px;
+  margin-top: 10px;
 }
 
 .dialog-total {

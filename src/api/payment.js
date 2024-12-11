@@ -39,12 +39,17 @@ export const selectCreditCardMethod = (cardId) =>
     PAYMENT_ENDPOINTS.selectCreditCardMethod.replace('{cardId}', cardId)
   );
 
-export const applyPurchaseOrderNumber = (purchaseOrderNumber) => {
-  apiRequest(
-    'PUT',
-    PAYMENT_ENDPOINTS.applyPurchaseOrderNumber.replace(
-      '{purchaseOrderNumber}',
-      purchaseOrderNumber
-    )
-  );
+export const applyPurchaseOrderNumber = async (purchaseOrderNumber) => {
+  try {
+    const response = await apiRequest(
+      'PUT',
+      PAYMENT_ENDPOINTS.applyPurchaseOrderNumber.replace(
+        '{purchaseOrderNumber}',
+        purchaseOrderNumber
+      )
+    );
+    return response;
+  } catch (error) {
+    throw new Error(error);
+  }
 };

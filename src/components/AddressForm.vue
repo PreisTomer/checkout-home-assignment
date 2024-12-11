@@ -1,64 +1,85 @@
 <template>
   <div class="address-form">
-    <div class="mt-1">
-      <v-select
-        v-model="selectedAddressId"
-        :items="formattedAddresses"
-        item-value="id"
-        item-text="display"
-        label="Select an Address"
-        @input="fillAddress"
-      >
-        <template v-slot:selection="{ item }">
-          <span>{{ item.display }}</span>
-          <v-icon
-            small
-            class="ml-2"
-            color="red"
-            @click.stop="confirmDeleteAddress(item.id)"
-          >
-            mdi-delete
-          </v-icon>
-        </template>
-      </v-select>
-
+    <div class="mt-5">
       <div class="address-inputs">
         <v-select
           v-model="address.country"
           :items="countries"
+          :readonly="readOnly"
           label="Country"
           outlined
           dense
         ></v-select>
         <v-select
           v-model="address.state"
+          :readonly="readOnly"
           :items="states"
           label="State"
           outlined
           dense
           :disabled="!['USA', 'Canada'].includes(address.country)"
         ></v-select>
-        <v-text-field v-model="address.city" label="City" outlined dense />
+        <v-text-field
+          v-model="address.city"
+          :readonly="readOnly"
+          label="City"
+          outlined
+          dense
+        />
         <v-text-field
           v-model="address.zipCode"
+          :readonly="readOnly"
           label="Zip Code"
           outlined
           dense
         />
         <v-text-field
           v-model="address.addressLine1"
+          :readonly="readOnly"
           label="Address Line 1"
           outlined
           dense
         />
         <v-text-field
           v-model="address.addressLine2"
+          :readonly="readOnly"
           label="Address Line 2 (Optional)"
           outlined
           dense
+          hide-details
         />
       </div>
+      <v-btn
+        color="primary"
+        class="my-4"
+        small
+        :loading="addAddressButtonLoader"
+        :disabled="!isValid || !!selectedAddressId"
+        @click="emitAddAddressEvent"
+        >Add</v-btn
+      >
     </div>
+
+    <v-select
+      v-model="selectedAddressId"
+      :items="formattedAddresses"
+      item-value="id"
+      item-text="display"
+      label="Select an Address"
+      @input="fillAddress"
+    >
+      <template v-slot:selection="{ item }">
+        <span>{{ item.display }}</span>
+        <v-icon
+          small
+          class="ml-2"
+          color="red"
+          @click.stop="confirmDeleteAddress(item.id)"
+        >
+          mdi-delete
+        </v-icon>
+      </template>
+    </v-select>
 
     <v-dialog v-model="deleteDialog" max-width="400">
       <v-card>
@@ -91,11 +112,16 @@ export default {
       addressIdToDelete: null,
       address: {},
       states: [],
+      readOnly: false,
+      addAddressButtonLoader: false,
     };
   },
   watch: {
-    isValid(newVal) {
-      this.$emit("validity-change", newVal);
+    addresses(newVal) {
+      if (newVal.length > 0) {
+        this.addAddressButtonLoader = false;
+        this.mockAddresses = [...this.addresses];
+      }
     },
     "address.country"(newVal) {
       if (newVal === "USA" || newVal === "Canada") {
@@ -122,23 +148,26 @@ export default {
   },
 
   methods: {
+    emitAddAddressEvent() {
+      this.addAddressButtonLoader = true;
+      this.address.saved = true;
+      this.$emit("add-new-address", this.address);
+    },
     fillAddress() {
       const selectedAddress = this.mockAddresses.find(
         (addr) => addr.id === this.selectedAddressId
       );
-      if (selectedAddress.id) {
-        this.selectedAddressId = selectedAddress.id;
-        this.address = selectedAddress;
-      } else {
-        this.resetForm();
-      }
+      this.selectedAddressId = selectedAddress.id;
+      this.address = selectedAddress;
+      this.readOnly = true;
+
       this.emitAddress();
     },
     async getStates(country) {
       this.states = await getStatesByCountry(country);
     },
     emitAddress() {
-      this.$emit("update-address", { ...this.address });
+      this.$emit("update-address", this.selectedAddressId);
     },
     getAddressData() {
       return { ...this.address, id: this.selectedAddressId };
@@ -149,19 +178,12 @@ export default {
     },
 
     async deleteSelectedAddress() {
-      this.mockAddresses = [...this.addresses];
       try {
         await deleteAddress(this.addressIdToDelete);
-        this.mockAddresses = this.formattedAddresses.filter(
-          (addr) => addr.id !== this.addressIdToDelete
-        );
         this.deleteDialog = false;
         this.addressIdToDelete = null;
         this.resetForm();
-        if (this.selectedAddressId === this.addressIdToDelete) {
-          this.selectedAddressId = null;
-          this.fillAddress();
-        }
+        this.$emit("address-deleted");
       } catch (error) {
         console.error("Error deleting address:", error);
         this.deleteDialog = false;
@@ -176,6 +198,7 @@ export default {
         addressLine1: "",
         addressLine2: "",
       };
+      this.readonly = false;
     },
   },
 
